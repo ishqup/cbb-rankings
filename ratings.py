@@ -20,8 +20,7 @@ for tr in soup.find_all('tr')[1:]:
         pass
 
 stripSchools = [s.lower().strip() for s in schools]
-print(schools)
-print(sids)
+
 
 broken = {'UC-Riverside': 'UC Riverside', 'USC Upstate':'South Carolina Upstate', 'UNLV': 'Nevada-Las Vegas', 'LSU':'Louisiana State', 'UConn':'Connecticut', 'UNC':'North Carolina', 'Ole Miss':'Mississippi', 'UT-Southern':'Texas Southern', 'USC':'Southern California', 'Pitt':'Pittsburgh', "St. Joseph's":"Saint Joseph's", 'UMass':'Massachusetts', 'LIU':'Long Island University', 'UMBC':'Maryland-Baltimore County', 'UMass-Lowell':'Massachusetts-Lowell', 'ETSU':'East Tennessee State', 'UCSB':'UC Santa Barbara', 'Southern Miss':'Southern Mississippi', 'VCU':'Virginia Commonwealth', 'SMU':'Southern Methodist', 'UC-Davis':'UC Davis', 'UT-Martin':'Tennessee-Martin', 'UIC':'Illinois-Chicago', 'SIU-Edwardsville': 'SIU Edwardsville', "Saint Mary's":"Saint Mary's (CA)",'Penn':'Pennsylvania', "St. Peter's":"Saint Peter's", 'BYU':'Brigham Young', 'UC-San Diego': 'UC San Diego', 'UC-Irvine': 'UC Irvine', 'UCF':'Central Florida'}
 def get_school_data(school,sid):
@@ -39,6 +38,7 @@ def get_school_data(school,sid):
     games = []
     effOs = []
     effDs = []
+    effPs = []
     for game in gamelog.iterrows():
         try:
             opp = str(game[1][3])
@@ -81,6 +81,7 @@ def get_school_data(school,sid):
                     games.append(g)
                     effOs.append(gEffO)
                     effDs.append(gEffD)
+                    effPs.append(poss)
         except:
             pass
 
@@ -98,30 +99,47 @@ def get_school_data(school,sid):
         dPt2 = effDs[qtr1:qtr2]
         dPt3 = effDs[qtr2:qtr3]
         dPt4 = effDs[qtr3:]
-        effO = 0.28 * (sum(oPt4) / len(oPt4)) + 0.26 * (sum(oPt3) / len(oPt3)) + 0.24 * (sum(oPt2) / len(oPt2)) + 0.22 * (sum(oPt1) / len(oPt1))
-        effD = 0.28 * (sum(dPt4) / len(dPt4)) + 0.26 * (sum(dPt3) / len(dPt3)) + 0.24 * (sum(dPt2) / len(dPt2)) + 0.22 * (sum(dPt1) / len(dPt1))
+        pPt1 = effPs[:qtr1]
+        pPt2 = effPs[qtr1:qtr2]
+        pPt3 = effPs[qtr2:qtr3]
+        pPt4 = effPs[qtr3:]
+        effO = 0.26 * (sum(oPt4) / len(oPt4)) + 0.253 * (sum(oPt3) / len(oPt3)) + 0.247 * (sum(oPt2) / len(oPt2)) + 0.24 * (sum(oPt1) / len(oPt1))
+        effD = 0.26 * (sum(dPt4) / len(dPt4)) + 0.253 * (sum(dPt3) / len(dPt3)) + 0.247 * (sum(dPt2) / len(dPt2)) + 0.24 * (sum(dPt1) / len(dPt1))
+        effP = 0.26 * (sum(pPt4) / len(pPt4)) + 0.253 * (sum(pPt3) / len(pPt3)) + 0.247 * (sum(pPt2) / len(pPt2)) + 0.24 * (sum(pPt1) / len(pPt1))
     else:
-        effO = sum(effOs)/len(effOs)
+        effO = sum(effOs) / len(effOs)
         effD = sum(effDs) / len(effDs)
-    stats = [school,conf,effO,effD]
+        effP = sum(effPs) / len(effPs)
+    sdOs = [(x - effO)**2 for x in effOs]
+    sdO = math.sqrt(sum(sdOs) / len(sdOs))
+    sdDs = [(x - effD) ** 2 for x in effOs]
+    sdD = math.sqrt(sum(sdDs) / len(sdDs))
+    sdPs = [(x - effD) ** 2 for x in effOs]
+    sdP = math.sqrt(sum(sdPs) / len(sdPs))
+    stats = [school,conf,effO,sdO,effD,sdD,effP,sdP]
     return schedule,stats
+
 
 def get_opp_rating(schedule):
     oppOs = []
     oppDs = []
+    oppPs = []
     for game in schedule.iterrows():
         opp = game[1][0]
-        for row in master.iterrows():
-            if row[1][0] == opp:
-                gOppO = float(row[1][2])
-                gOppD = float(row[1][3])
-                oppOs.append(gOppO)
-                oppDs.append(gOppD)
+        row = master.loc[master['School'] == opp]
+        gOppO = float(row.iloc[0,2])
+        gOppD = float(row.iloc[0,3])
+        gOppP = float(row.iloc[0,4])
+        oppOs.append(gOppO)
+        oppDs.append(gOppD)
+        oppPs.append(gOppP)
 
     oppO = sum(oppOs) / len(oppOs)
     oppD = sum(oppDs) / len(oppDs)
+    oppP = sum(oppPs) / len(oppPs)
 
-    return [oppO,oppD]
+    return [oppO,oppD,oppP]
+
 
 def win_quality(schedule):
     Q1W = 0
@@ -136,9 +154,8 @@ def win_quality(schedule):
         opp = game[1][0]
         loc = game[1][1]
         outcome = game[1][2]
-        for row in master.iterrows():
-            if row[1][0] == opp:
-                rank = int(row[1][13])
+        row = master.loc[master['School'] == opp]
+        rank = int(row.iloc[0,19])
         try:
             if loc == 'H':
                 if rank <= 30:
@@ -211,8 +228,9 @@ def win_quality(schedule):
                                 Q4L += 1
         except:
             pass
-    adjQ = 0.125*Q1W + 0.075*Q1L + 0.1*Q2W + 0.05*Q2L + 0.075*Q3W + 0.025*Q3L + 0.05*Q4W + 0.0*Q4L
+    adjQ = 0.03125*Q1W + 0.01875*Q1L + 0.025*Q2W + 0.0125*Q2L + 0.01875*Q3W + 0.00625*Q3L + 0.0125*Q4W + 0.0*Q4L
     return adjQ
+
 
 def quad_wins(schedule):
     W = 0
@@ -235,9 +253,8 @@ def quad_wins(schedule):
         opp = game[1][0]
         loc = game[1][1]
         outcome = game[1][2]
-        for row in master.iterrows():
-            if row[1][0] == opp:
-                rank = int(row[1][13])
+        row = master.loc[master['School'] == opp]
+        rank = int(row.iloc[0, 19])
         try:
             if loc == 'H':
                 if rank <= 30:
@@ -380,7 +397,7 @@ for school,sid in zip(schools,sids):
     print(stats)
     time.sleep(3)
 
-master = pd.DataFrame(ratings, columns=['School','Conf','EffO','EffD'])
+master = pd.DataFrame(ratings, columns=['School','Conf','EffO','SDO','EffD','SDD','EffP','SDP'])
 
 oppRatings = []
 for school,schedule in zip(schools,schedules):
@@ -389,13 +406,15 @@ for school,schedule in zip(schools,schedules):
     print(school)
     print(oppStats)
 
-oppEff = pd.DataFrame(oppRatings, columns=['OppO','OppD'])
+oppEff = pd.DataFrame(oppRatings, columns=['OppO','OppD','OppP'])
 master = pd.concat([master,oppEff], axis=1)
 
 master['OppO'] = master['OppO'] - master['OppO'].mean()
 master['OppD'] = master['OppD'] - master['OppD'].mean()
+master['OppP'] = master['OppP'] - master['OppP'].mean()
 master['AdjO'] = master['EffO'] - master['OppD']
 master['AdjD'] = master['EffD'] - master['OppO']
+master['AdjT'] = master['EffP'] - master['OppP']
 
 confAvgs = master.groupby('Conf')[['AdjO', 'AdjD']].mean()
 confAvgs['ConfStrO'] = confAvgs['AdjO'] - confAvgs['AdjO'].mean()
@@ -406,25 +425,25 @@ master = pd.merge(master,confAvgs[['ConfStrO', 'ConfStrD']], on='Conf', how='lef
 master['AdjEM'] = master['AdjO'] - master['AdjD']
 master['ConfStr'] = master['ConfStrO'] - master['ConfStrD']
 master['SoS'] = master['OppO'] - master['OppD']
-master['Rank'] = master['AdjEM'].rank(ascending=False)
+master['Rk'] = master['AdjEM'].rank(ascending=False)
 
-#qVals = []
-#for school,schedule in zip(schools,schedules):
-    #adjQ = win_quality(schedule)
-    #qVals.append(adjQ)
-    #print(school)
-    #print(adjQ)
+qVals = []
+for school,schedule in zip(schools,schedules):
+    adjQ = win_quality(schedule)
+    qVals.append(adjQ)
+    print(school)
+    print(adjQ)
+'''
+qVal = pd.DataFrame(qVals, columns=['AdjQ'])
+master = pd.concat([master,qVal], axis=1)
 
-#qVal = pd.DataFrame(qVals, columns=['AdjQ'])
-#master = pd.concat([master,qVal], axis=1)
-
-#print(master['AdjQ'].mean())
-#master['AdjQ'] = master['AdjQ'] - master['AdjQ'].mean()
-#master['AdjO'] = master['AdjO'] + 0.5*master['AdjQ']
-#master['AdjD'] = master['AdjD'] - 0.5*master['AdjQ']
-#master['AdjEM'] = master['AdjO'] - master['AdjD']
-#master['Rank'] = master['AdjEM'].rank(ascending=False)
-
+print(master['AdjQ'].mean())
+master['AdjQ'] = master['AdjQ'] - master['AdjQ'].mean()
+master['AdjO'] = master['AdjO'] + 0.5*master['AdjQ']
+master['AdjD'] = master['AdjD'] - 0.5*master['AdjQ']
+master['AdjEM'] = master['AdjO'] - master['AdjD']
+master['Rk'] = master['AdjEM'].rank(ascending=False)
+'''
 records = []
 for school,schedule in zip(schools,schedules):
     record = quad_wins(schedule)
@@ -435,10 +454,12 @@ for school,schedule in zip(schools,schedules):
 quadW = pd.DataFrame(records, columns=['Record','Home','Neutral','Away','Q1','Q2','Q3','Q4'])
 master = pd.concat([master,quadW], axis=1)
 
-rank = master.pop('Rank')
-master.insert(0, 'Rank', rank)
+rank = master.pop('Rk')
+master.insert(0, 'Rk', rank)
 
-master = master.drop(['EffO','EffD','OppO','OppD','AdjQ','ConfStrO','ConfStrD'], axis=1)
+#'AdjQ',
+master = master.drop(['EffO','EffD','EffP','OppO','OppD','OppP','ConfStrO','ConfStrD'], axis=1)
+master = master.sort_values(by=['Rk'])
 
 print(master.head(5))
 master.to_csv('master.csv', index=False)
