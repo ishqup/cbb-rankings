@@ -454,11 +454,9 @@ for school,schedule in zip(schools,schedules):
 quadW = pd.DataFrame(records, columns=['Record','Home','Neutral','Away','Q1','Q2','Q3','Q4'])
 master = pd.concat([master,quadW], axis=1)
 
-rank = master.pop('Rk')
-master.insert(0, 'Rk', rank)
-
 #'AdjQ',
 master = master.drop(['EffO','EffD','EffP','OppO','OppD','OppP','ConfStrO','ConfStrD'], axis=1)
+master = master.reindex(columns=['Rk','School','Conf','ConfStr','AdjEM','AdjO','SDO','AdjD','SDD','AdjT','SDP','Record','Home','Neutral','Away','Q1','Q2','Q3','Q4'])
 master = master.sort_values(by=['Rk'])
 
 print(master.head(5))
